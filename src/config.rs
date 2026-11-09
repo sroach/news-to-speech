@@ -9,6 +9,7 @@ pub struct Config {
     pub voice: String,
     pub speed: u32,
     pub interval_secs: u64,
+    pub retention_days: u64,
 }
 
 impl Config {
@@ -19,6 +20,7 @@ impl Config {
             .set_default("voice", "Daniel")?
             .set_default("speed", 175)?
             .set_default("interval_secs", 3600)?
+            .set_default("retention_days", 5)?
             .add_source(File::with_name("config").required(false))
             .add_source(Environment::with_prefix("NEWS"));
 

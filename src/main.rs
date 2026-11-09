@@ -35,6 +35,7 @@ async fn main() {
     tracing::info!("  Voice: {}", config.voice);
     tracing::info!("  Speed: {} wpm", config.speed);
     tracing::info!("  Interval: {}s", config.interval_secs);
+    tracing::info!("  Retention: {} days", config.retention_days);
 
     // Ensure output directory exists
     if let Err(e) = output::ensure_output_dir(&config.output_dir) {
@@ -99,17 +100,22 @@ async fn run_pipeline(
     processed_state: &mut ProcessedState,
     state_path: &std::path::PathBuf,
 ) {
+    let mut success_count = 0;
+
     // Step 1: Fetch feed
     let items = match feed::fetch_feed(&config.feed_url).await {
         Ok(items) => items,
         Err(e) => {
             tracing::error!("Failed to fetch feed: {}", e);
+            // Still run cleanup even if feed fetch fails
+            cleanup_and_log(config);
             return;
         }
     };
 
     if items.is_empty() {
         tracing::info!("No items in feed");
+        cleanup_and_log(config);
         return;
     }
 
@@ -135,60 +141,74 @@ async fn run_pipeline(
 
     if new_items.is_empty() {
         tracing::info!("No new articles to process");
-        return;
-    }
+    } else {
+        tracing::info!("{} new articles to process", new_items.len());
 
-    tracing::info!("{} new articles to process", new_items.len());
+        // Step 3: Process each new article
+        for (index, item) in new_items.iter().enumerate() {
+            let url = if item.link.is_empty() {
+                item.title.clone()
+            } else {
+                item.link.clone()
+            };
 
-    // Step 3: Process each new article
-    let mut success_count = 0;
-    for (index, item) in new_items.iter().enumerate() {
-        let url = if item.link.is_empty() {
-            item.title.clone()
-        } else {
-            item.link.clone()
-        };
+            tracing::info!(
+                "Processing article {}/{}: {}",
+                index + 1,
+                new_items.len(),
+                item.title
+            );
 
-        tracing::info!(
-            "Processing article {}/{}: {}",
-            index + 1,
-            new_items.len(),
-            item.title
-        );
+            // Extract article content from RSS description
+            let article = match article::extract_article(item) {
+                Ok(a) => a,
+                Err(e) => {
+                    tracing::error!("Failed to extract article '{}': {}", item.title, e);
+                    continue;
+                }
+            };
 
-        // Extract article content from RSS description
-        let article = match article::extract_article(item) {
-            Ok(a) => a,
-            Err(e) => {
-                tracing::error!("Failed to extract article '{}': {}", item.title, e);
+            // Build the full text: title + body
+            let full_text = format!("{}. {}", article.title, article.body);
+
+            // Generate output path
+            let output_path_str = output::generate_output_path(&config.output_dir, index);
+
+            // Synthesize speech directly to WAV file using macOS `say`
+            if let Err(e) = tts::synthesize_to_file(&full_text, &output_path_str, config) {
+                tracing::error!("Failed to synthesize '{}': {}", item.title, e);
                 continue;
             }
-        };
 
-        // Build the full text: title + body
-        let full_text = format!("{}. {}", article.title, article.body);
-
-        // Generate output path
-        let output_path_str = output::generate_output_path(&config.output_dir, index);
-
-        // Synthesize speech directly to WAV file using macOS `say`
-        if let Err(e) = tts::synthesize_to_file(&full_text, &output_path_str, config) {
-            tracing::error!("Failed to synthesize '{}': {}", item.title, e);
-            continue;
+            // Mark as processed
+            processed_state.mark_processed(url);
+            success_count += 1;
         }
 
-        // Mark as processed
-        processed_state.mark_processed(url);
-        success_count += 1;
+        // Save state
+        if let Err(e) = state::save_state(processed_state, state_path) {
+            tracing::error!("Failed to save state: {}", e);
+        }
     }
 
-    // Save state
-    if let Err(e) = state::save_state(processed_state, state_path) {
-        tracing::error!("Failed to save state: {}", e);
-    }
+    // Clean up old WAV files (always runs)
+    cleanup_and_log(config);
 
     tracing::info!(
         "Pipeline complete: {} articles processed successfully",
         success_count
     );
+}
+
+fn cleanup_and_log(config: &Config) {
+    match output::cleanup_old_files(&config.output_dir, config.retention_days) {
+        Ok(deleted) => {
+            if deleted > 0 {
+                tracing::info!("Removed {} old files", deleted);
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to clean up old files: {}", e);
+        }
+    }
 }

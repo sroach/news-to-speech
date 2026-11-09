@@ -12,3 +12,6 @@ speed = 175
 
 # Interval in seconds between fetch cycles (default: 3600 = 1 hour)
 interval_secs = 3600
+
+# How many days to keep WAV files (older files are deleted after each run)
+retention_days = 5

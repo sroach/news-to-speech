@@ -108,14 +108,14 @@ async fn run_pipeline(
         Err(e) => {
             tracing::error!("Failed to fetch feed: {}", e);
             // Still run cleanup even if feed fetch fails
-            cleanup_and_log(config);
+            cleanup_and_log(config, processed_state, state_path);
             return;
         }
     };
 
     if items.is_empty() {
         tracing::info!("No items in feed");
-        cleanup_and_log(config);
+        cleanup_and_log(config, processed_state, state_path);
         return;
     }
 
@@ -191,8 +191,8 @@ async fn run_pipeline(
         }
     }
 
-    // Clean up old WAV files (always runs)
-    cleanup_and_log(config);
+    // Clean up old WAV files and state entries (always runs)
+    cleanup_and_log(config, processed_state, state_path);
 
     tracing::info!(
         "Pipeline complete: {} articles processed successfully",
@@ -200,15 +200,33 @@ async fn run_pipeline(
     );
 }
 
-fn cleanup_and_log(config: &Config) {
+fn cleanup_and_log(
+    config: &Config,
+    processed_state: &mut ProcessedState,
+    state_path: &std::path::PathBuf,
+) {
+    // Clean up old WAV files
     match output::cleanup_old_files(&config.output_dir, config.retention_days) {
         Ok(deleted) => {
             if deleted > 0 {
-                tracing::info!("Removed {} old files", deleted);
+                tracing::info!("Removed {} old WAV files", deleted);
             }
         }
         Err(e) => {
             tracing::error!("Failed to clean up old files: {}", e);
+        }
+    }
+
+    // Prune old entries from processed state
+    if config.retention_days > 0 {
+        let cutoff =
+            Local::now() - chrono::Duration::days(config.retention_days as i64);
+        let pruned = processed_state.prune_old(cutoff);
+        if pruned > 0 {
+            tracing::info!("Pruned {} old entries from processed state", pruned);
+            if let Err(e) = state::save_state(processed_state, state_path) {
+                tracing::error!("Failed to save pruned state: {}", e);
+            }
         }
     }
 }

@@ -5,10 +5,10 @@ feed_url = "https://guyanachronicle.com/feed/"
 output_dir = "./output"
 
 # macOS voice name (e.g., "Daniel" for UK English, "Samantha" for US English)
-voice = "Shelly"
+voice = "Daniel"
 
 # Speech speed in words per minute
-speed = 175
+speed = 155
 
 # Interval in seconds between fetch cycles (default: 3600 = 1 hour)
 interval_secs = 3600

@@ -76,9 +76,9 @@ This writes `output/test_voice.wav` using the voice and speed from `config.toml`
 
 1. **On startup** — The app immediately fetches the RSS feed and processes any new articles.
 2. **On the hour** — The app sleeps until the next hour mark (e.g., 21:00, 22:00), then repeats the pipeline.
-3. **Deduplication** — Processed article URLs are saved to `output/processed.json`. Re-running the app will not regenerate already-processed articles.
+3. **Deduplication** — Processed article URLs are saved to `output/processed.json` with timestamps. Re-running the app will not regenerate already-processed articles.
 4. **Article content** — Each RSS item's description is cleaned (HTML tags stripped, entities decoded) and used as the spoken text. Full article pages are behind a JavaScript challenge, so the RSS description (~55 words) is used instead.
-5. **Auto cleanup** — After each pipeline run, WAV files older than `retention_days` (default 5 days) are automatically deleted to keep the output directory from growing indefinitely.
+5. **Auto cleanup** — After each pipeline run, WAV files and processed state entries older than `retention_days` (default 5 days) are automatically deleted. This keeps the output directory from growing indefinitely and allows old articles to be re-processed if they reappear in the feed after the retention window.
 
 ### Output Files
 
@@ -142,4 +142,4 @@ To re-process all articles (e.g., after changing the voice), delete the state fi
 rm output/processed.json
 ```
 
-The next run will treat all articles as new.
+The next run will treat all articles as new. Alternatively, old entries are automatically pruned after `retention_days` (default 5 days), so articles that reappear in the feed after that window will be re-processed.

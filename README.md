@@ -1,8 +1,8 @@
 # News to Speech
 
-A Rust daemon that fetches the Guyana Chronicle RSS feed, converts each article to speech using Apple's built-in text-to-speech, and drops WAV files into a directory that Liquidsoap monitors for its playlist.
+A Rust daemon that fetches the Guyana Chronicle RSS feed, converts each article to speech, and drops WAV files into a directory that Liquidsoap monitors for its playlist.
 
-Designed for Apple Silicon (macOS) — uses the native `say` command for high-quality neural voices.
+Supports two TTS engines: **Kokoro TTS** (default, natural-sounding AI voices) and macOS's built-in `say` command (backup).
 
 ## Quick Start
 
@@ -24,14 +24,59 @@ Edit `config.toml` in the project root:
 |---------|---------|-------------|
 | `feed_url` | `https://guyanachronicle.com/feed/` | RSS feed URL |
 | `output_dir` | `./output` | Where WAV files are written |
-| `voice` | `Daniel` | macOS voice name |
-| `speed` | `175` | Speech rate (words per minute) |
+| `tts_engine` | `kokoro` | TTS engine: `"kokoro"` or `"say"` |
+| `voice` | `af_heart` | Voice name (see Available Voices below) |
+| `speed` | `175` | Speech rate in wpm (only used with `say` engine) |
 | `interval_secs` | `3600` | Seconds between fetch cycles |
 | `retention_days` | `5` | Days to keep WAV files (older files are auto-deleted) |
 
 ### Available Voices
 
-The app uses macOS's built-in `say` command. High-quality neural voices for news reading:
+#### Kokoro TTS Voices (default engine)
+
+Kokoro provides 54 natural-sounding voices across 8 languages. On first run, the model (~310MB) is automatically downloaded to `~/.cache/k/`.
+
+**American English — 20 voices**
+
+| Voice | Gender | Voice | Gender |
+|-------|--------|-------|--------|
+| `af_heart` | Female | `am_adam` | Male |
+| `af_alloy` | Female | `am_echo` | Male |
+| `af_aoede` | Female | `am_eric` | Male |
+| `af_bella` | Female | `am_fenrir` | Male |
+| `af_jessica` | Female | `am_liam` | Male |
+| `af_kore` | Female | `am_michael` | Male |
+| `af_nicole` | Female | `am_onyx` | Male |
+| `af_nova` | Female | `am_puck` | Male |
+| `af_river` | Female | `am_santa` | Male |
+| `af_sarah` | Female | | |
+| `af_sky` | Female | | |
+
+**British English — 8 voices**
+
+| Voice | Gender | Voice | Gender |
+|-------|--------|-------|--------|
+| `bf_alice` | Female | `bm_daniel` | Male |
+| `bf_emma` | Female | `bm_fable` | Male |
+| `bf_isabella` | Female | `bm_george` | Male |
+| `bf_lily` | Female | `bm_lewis` | Male |
+
+**Other Languages — 26 voices**
+
+| Language | Voices |
+|----------|--------|
+| Spanish | `ef_alpha` (F), `em_alpha` (M) |
+| French | `ff_alpha` (F), `fm_alpha` (M) |
+| German | `pf_alpha` (F), `pm_alpha` (M) |
+| Italian | `if_sara` (F), `im_nicola` (M) |
+| Portuguese (BR) | `pf_dora` (F), `pm_alex` (M), `pm_santa` (M) |
+| Hindi | `hf_alpha` (F), `hf_beta` (F), `hm_omega` (M), `hm_psi` (M) |
+| Chinese (Mandarin) | 8 voices (`zf_*` and `zm_*` variants) |
+| Japanese | 5 voices (`jf_*` and `jm_*` variants) |
+
+#### macOS Voices (backup engine)
+
+When `tts_engine = "say"`, use macOS built-in voices:
 
 | Voice | Accent | Gender |
 |-------|--------|--------|
@@ -44,10 +89,24 @@ The app uses macOS's built-in `say` command. High-quality neural voices for news
 | **Eddy** | US/UK English | Male |
 | **Flo** | US/UK English | Female |
 
-List all available voices:
+List all available macOS voices:
 
 ```bash
 say -v '?'
+```
+
+#### Switching Engines
+
+To switch from Kokoro to macOS `say` (or vice versa), update `config.toml`:
+
+```toml
+# Use Kokoro TTS (default)
+tts_engine = "kokoro"
+voice = "af_heart"
+
+# Or use macOS say (backup)
+# tts_engine = "say"
+# voice = "Samantha"
 ```
 
 ### Environment Variables
@@ -55,7 +114,11 @@ say -v '?'
 Override any config setting with `NEWS_` prefixed environment variables:
 
 ```bash
-NEWS_VOICE=Samantha NEWS_SPEED=150 ./target/release/newstospeech
+# Switch to macOS say engine
+NEWS_TTS_ENGINE=say NEWS_VOICE=Samantha ./target/release/newstospeech
+
+# Use a different Kokoro voice
+NEWS_VOICE=am_michael ./target/release/newstospeech
 ```
 
 ## Testing Voice Output
@@ -130,9 +193,10 @@ RUST_LOG=error ./target/release/newstospeech
 
 ## Requirements
 
-- **macOS** — The `say` command is macOS-specific.
+- **macOS** — Primary platform; Kokoro TTS also supports Linux and Windows.
 - **Rust** — Build requires the Rust toolchain (`rustup.rs`).
-- No external TTS dependencies — uses the built-in `say` command.
+- **Kokoro TTS model** — On first run with `tts_engine = "kokoro"`, the ONNX model (~310MB) is automatically downloaded to `~/.cache/k/`. Subsequent runs use the cached model.
+- **macOS `say` backup** — When using `tts_engine = "say"`, only macOS is supported.
 
 ## Reset Processed Articles
 

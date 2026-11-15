@@ -4,14 +4,20 @@ feed_url = "https://guyanachronicle.com/feed/"
 # Output directory for WAV files
 output_dir = "./output"
 
-# macOS voice name (e.g., "Daniel" for UK English, "Samantha" for US English)
-voice = "Daniel"
+# TTS engine: "kokoro" for Kokoro TTS (natural voices), "say" for macOS built-in
+# Kokoro auto-downloads the model on first run (~310MB to ~/.cache/k/)
+tts_engine = "kokoro"
 
-# Speech speed in words per minute
-speed = 155
+# Voice name:
+#   Kokoro voices: af_heart, af_alloy, am_adam, am_michael, bf_alice, bm_daniel, etc.
+#   macOS voices:  Daniel, Samantha, Moira, etc. (only used when tts_engine = "say")
+voice = "af_heart"
+
+# Speech speed in words per minute (only used when tts_engine = "say")
+speed = 150
 
 # Interval in seconds between fetch cycles (default: 3600 = 1 hour)
 interval_secs = 3600
 
 # How many days to keep WAV files (older files are deleted after each run)
-retention_days = 5
+retention_days = 1

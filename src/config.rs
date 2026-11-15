@@ -6,6 +6,8 @@ use std::path::PathBuf;
 pub struct Config {
     pub feed_url: String,
     pub output_dir: PathBuf,
+    /// TTS engine: "kokoro" for Kokoro TTS, "say" for macOS say command
+    pub tts_engine: String,
     pub voice: String,
     pub speed: u32,
     pub interval_secs: u64,
@@ -17,7 +19,8 @@ impl Config {
         let builder = ConfigEngine::builder()
             .set_default("feed_url", "https://guyanachronicle.com/feed/")?
             .set_default("output_dir", "./output")?
-            .set_default("voice", "Daniel")?
+            .set_default("tts_engine", "kokoro")?
+            .set_default("voice", "af_heart")?
             .set_default("speed", 175)?
             .set_default("interval_secs", 3600)?
             .set_default("retention_days", 5)?

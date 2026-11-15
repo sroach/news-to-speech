@@ -32,6 +32,7 @@ async fn main() {
     tracing::info!("Configuration loaded:");
     tracing::info!("  Feed URL: {}", config.feed_url);
     tracing::info!("  Output dir: {:?}", config.output_dir);
+    tracing::info!("  TTS engine: {}", config.tts_engine);
     tracing::info!("  Voice: {}", config.voice);
     tracing::info!("  Speed: {} wpm", config.speed);
     tracing::info!("  Interval: {}s", config.interval_secs);
@@ -174,8 +175,8 @@ async fn run_pipeline(
             // Generate output path
             let output_path_str = output::generate_output_path(&config.output_dir, index);
 
-            // Synthesize speech directly to WAV file using macOS `say`
-            if let Err(e) = tts::synthesize_to_file(&full_text, &output_path_str, config) {
+            // Synthesize speech directly to WAV file
+            if let Err(e) = tts::synthesize_to_file(&full_text, &output_path_str, config).await {
                 tracing::error!("Failed to synthesize '{}': {}", item.title, e);
                 continue;
             }

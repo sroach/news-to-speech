@@ -36,7 +36,7 @@ fn main() {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    // Synthesize speech using macOS `say` command
+    // Synthesize speech using configured engine
     match synthesize_to_file(&text, output_path, &config) {
         Ok(()) => {
             println!("Done! WAV written to {}", output_path);
@@ -51,6 +51,7 @@ fn main() {
 // --- Config (mirrors src/config.rs) ---
 
 struct Config {
+    tts_engine: String,
     voice: String,
     speed: u32,
 }
@@ -58,7 +59,8 @@ struct Config {
 impl Config {
     fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let builder = config::Config::builder()
-            .set_default("voice", "Daniel")?
+            .set_default("tts_engine", "kokoro")?
+            .set_default("voice", "af_heart")?
             .set_default("speed", 175u32)?;
 
         // Try to load config.toml from the current directory or parent
@@ -66,10 +68,11 @@ impl Config {
             .add_source(config::File::with_name("config").required(false))
             .build()?;
 
+        let tts_engine: String = settings.get("tts_engine")?;
         let voice: String = settings.get("voice")?;
         let speed: u32 = settings.get("speed")?;
 
-        Ok(Config { voice, speed })
+        Ok(Config { tts_engine, voice, speed })
     }
 }
 
@@ -80,7 +83,57 @@ fn synthesize_to_file(
     output_path: &str,
     config: &Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    tracing::info!("Synthesizing with voice '{}', speed {}", config.voice, config.speed);
+    match config.tts_engine.as_str() {
+        "kokoro" => {
+            // Kokoro is async, but we're in a sync context — use block_on
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async { synthesize_kokoro(text, output_path, config).await })
+        }
+        "say" => synthesize_say(text, output_path, config),
+        other => {
+            return Err(format!("Unknown TTS engine: '{}'. Use 'kokoro' or 'say'.", other).into());
+        }
+    }
+}
+
+async fn synthesize_kokoro(
+    text: &str,
+    output_path: &str,
+    config: &Config,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::info!(
+        "Synthesizing with Kokoro, voice '{}', output: {}",
+        config.voice,
+        output_path
+    );
+
+    let engine = kokoro_micro::TtsEngine::new()
+        .await
+        .map_err(|e| format!("Failed to initialize Kokoro: {}", e))?;
+
+    let audio = engine
+        .synthesize_with_options(text, Some(&config.voice), 1.0, 1.0, None)
+        .map_err(|e| format!("Kokoro synthesis failed: {}", e))?;
+
+    engine
+        .save_wav(output_path, &audio)
+        .map_err(|e| format!("Failed to save WAV: {}", e))?;
+
+    tracing::info!("Wrote WAV file: {}", output_path);
+    Ok(())
+}
+
+fn synthesize_say(
+    text: &str,
+    output_path: &str,
+    config: &Config,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::info!(
+        "Synthesizing with macOS 'say', voice '{}', speed {}",
+        config.voice,
+        config.speed
+    );
 
     let text_file = format!("{}.tmp", output_path);
     std::fs::write(&text_file, text)?;
@@ -95,8 +148,7 @@ fn synthesize_to_file(
         .arg("--data-format=LEI16@22050")
         .arg("-f")
         .arg(&text_file)
-        .output()?
-    ;
+        .output()?;
 
     let _ = std::fs::remove_file(&text_file);
 

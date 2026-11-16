@@ -2,162 +2,318 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News to Speech Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1c1c1e">
+    <title>News to Speech</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            background: #1c1c1e;
+            color: #ffffff;
             min-height: 100vh;
-            padding: 2rem;
+            padding: 20px 16px calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+            padding-top: calc(20px + env(safe-area-inset-top));
         }
 
         .container {
-            max-width: 700px;
+            max-width: 680px;
             margin: 0 auto;
         }
 
+        /* SF Pro type scale */
         h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            color: #fff;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            margin-bottom: 4px;
+            color: #ffffff;
         }
 
         .subtitle {
-            font-size: 0.85rem;
-            color: #888;
-            margin-bottom: 1.5rem;
+            font-size: 15px;
+            font-weight: 400;
+            color: #8e8e93;
+            margin-bottom: 24px;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .header-icon {
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+            color: #0a84ff;
         }
 
         .status-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
-            font-size: 0.8rem;
-            color: #666;
+            margin-bottom: 16px;
+            padding: 0 2px;
         }
 
         .status-bar .count {
-            color: #aaa;
+            font-size: 13px;
+            font-weight: 500;
+            color: #8e8e93;
         }
 
         .status-bar .refresh {
+            font-size: 13px;
+            font-weight: 400;
             cursor: pointer;
-            color: #4fc3f7;
+            color: #0a84ff;
             user-select: none;
+            padding: 4px 8px;
+            border-radius: 8px;
+            transition: background 0.15s;
         }
 
         .status-bar .refresh:hover {
-            color: #81d4fa;
+            background: rgba(10, 132, 255, 0.12);
         }
 
-        .player-fixed {
-            background: #16213e;
+        /* Player card — hairline border, no shadow */
+        .player-card {
+            background: #2c2c2e;
+            border: 0.5px solid rgba(128, 128, 128, 0.2);
             border-radius: 12px;
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .now-playing-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0a84ff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
 
         .now-playing {
-            font-size: 0.8rem;
-            color: #4fc3f7;
-            margin-bottom: 0.5rem;
+            font-size: 15px;
+            font-weight: 400;
+            color: #ffffff;
+            margin-bottom: 12px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        audio {
-            width: 100%;
-            height: 40px;
-            border-radius: 8px;
+        /* Custom audio controls */
+        .custom-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
+        .play-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #0a84ff;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+
+        .play-btn:hover {
+            opacity: 0.85;
+        }
+
+        .play-btn:active {
+            opacity: 0.7;
+        }
+
+        .play-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .progress-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #3a3a3c;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar:hover {
+            height: 6px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #0a84ff;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 400;
+            color: #636366;
+        }
+
+        /* File list */
         .file-list {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 8px;
         }
 
         .file-item {
-            background: #16213e;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
+            background: #2c2c2e;
+            border: 0.5px solid rgba(128, 128, 128, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
             transition: background 0.15s;
-            border-left: 3px solid transparent;
         }
 
         .file-item:hover {
-            background: #1a2744;
+            background: #3a3a3c;
         }
 
         .file-item.active {
-            background: #1a2744;
-            border-left-color: #4fc3f7;
+            background: rgba(10, 132, 255, 0.12);
+        }
+
+        .file-item .name-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 12px;
+            min-width: 0;
+        }
+
+        .new-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #30d158;
+            flex-shrink: 0;
         }
 
         .file-item .name {
-            font-size: 0.9rem;
-            flex: 1;
+            font-size: 15px;
+            font-weight: 400;
+            color: #ffffff;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-right: 1rem;
         }
 
         .file-item .meta {
-            font-size: 0.75rem;
-            color: #666;
+            font-size: 13px;
+            font-weight: 400;
+            color: #636366;
             white-space: nowrap;
             text-align: right;
+            flex-shrink: 0;
+        }
+
+        .file-item .meta .size {
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .file-item .meta .date {
+            font-size: 12px;
+            color: #636366;
         }
 
         .empty-state {
             text-align: center;
-            padding: 3rem 1rem;
-            color: #555;
-            font-size: 0.9rem;
+            padding: 48px 16px;
+            color: #636366;
+            font-size: 15px;
         }
 
-        .new-badge {
-            display: inline-block;
-            background: #4fc3f7;
-            color: #1a1a2e;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 4px;
-            margin-left: 0.5rem;
-            vertical-align: middle;
+        /* Hidden native audio element */
+        #audioPlayer {
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px 12px calc(16px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+                padding-top: calc(16px + env(safe-area-inset-top));
+            }
+            h1 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📻 News to Speech</h1>
+        <div class="header-row">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+            </svg>
+            <h1>News to Speech</h1>
+        </div>
         <p class="subtitle">Auto-updating audio player for processed news articles</p>
 
         <div class="status-bar">
             <span class="count" id="fileCount">Loading...</span>
-            <span class="refresh" id="lastRefresh" title="Click to refresh">Last refresh: --</span>
+            <span class="refresh" id="lastRefresh" title="Click to refresh">Refresh</span>
         </div>
 
-        <div class="player-fixed">
+        <div class="player-card">
+            <div class="now-playing-label">Now Playing</div>
             <div class="now-playing" id="nowPlaying">Select a file to play</div>
-            <audio id="audioPlayer" controls preload="none">
-                Your browser does not support the audio element.
-            </audio>
+            <div class="custom-controls">
+                <button class="play-btn" id="playBtn" disabled>
+                    <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    <svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="time-display">
+                        <span id="currentTime">0:00</span>
+                        <span id="duration">0:00</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <ul class="file-list" id="fileList">
@@ -165,15 +321,76 @@
         </ul>
     </div>
 
+    <audio id="audioPlayer" preload="none"></audio>
+
     <script>
         const audioPlayer = document.getElementById('audioPlayer');
         const fileListEl = document.getElementById('fileList');
         const nowPlayingEl = document.getElementById('nowPlaying');
         const fileCountEl = document.getElementById('fileCount');
         const lastRefreshEl = document.getElementById('lastRefresh');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
 
         let previousFiles = new Set();
         let refreshInterval = null;
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return m + ':' + (s < 10 ? '0' : '') + s;
+        }
+
+        function updatePlayState() {
+            const isPlaying = !audioPlayer.paused;
+            playIcon.style.display = isPlaying ? 'none' : 'block';
+            pauseIcon.style.display = isPlaying ? 'block' : 'none';
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (!audioPlayer.src) return;
+            if (audioPlayer.paused) {
+                audioPlayer.play().catch(e => console.error('Playback failed:', e));
+            } else {
+                audioPlayer.pause();
+            }
+        });
+
+        audioPlayer.addEventListener('play', updatePlayState);
+        audioPlayer.addEventListener('pause', updatePlayState);
+
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (audioPlayer.duration) {
+                const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                progressFill.style.width = pct + '%';
+                currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+            }
+        });
+
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(audioPlayer.duration);
+            playBtn.disabled = false;
+        });
+
+        audioPlayer.addEventListener('ended', () => {
+            updatePlayState();
+            progressFill.style.width = '100%';
+            currentTimeEl.textContent = durationEl.textContent;
+            nowPlayingEl.textContent = '✓ ' + nowPlayingEl.textContent.replace('▶ ', '');
+        });
+
+        progressBar.addEventListener('click', (e) => {
+            if (!audioPlayer.duration) return;
+            const rect = progressBar.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            audioPlayer.currentTime = pct * audioPlayer.duration;
+        });
 
         async function loadFiles() {
             try {
@@ -204,22 +421,27 @@
                 li.className = 'file-item' + (file.name === currentName ? ' active' : '');
 
                 const isNew = !previousFiles.has(file.name);
+
+                const nameWrapper = document.createElement('div');
+                nameWrapper.className = 'name-wrapper';
+
+                if (isNew) {
+                    const dot = document.createElement('span');
+                    dot.className = 'new-dot';
+                    nameWrapper.appendChild(dot);
+                }
+
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'name';
                 nameSpan.textContent = file.name;
-                if (isNew) {
-                    const badge = document.createElement('span');
-                    badge.className = 'new-badge';
-                    badge.textContent = 'NEW';
-                    nameSpan.appendChild(badge);
-                }
+                nameWrapper.appendChild(nameSpan);
 
                 const meta = document.createElement('span');
                 meta.className = 'meta';
                 const sizeKB = (file.size / 1024).toFixed(0);
-                meta.innerHTML = sizeKB + ' KB<br>' + file.modified;
+                meta.innerHTML = '<span class="size">' + sizeKB + ' KB</span><span class="date">' + file.modified + '</span>';
 
-                li.appendChild(nameSpan);
+                li.appendChild(nameWrapper);
                 li.appendChild(meta);
 
                 li.addEventListener('click', () => playFile(file.name));
@@ -231,24 +453,23 @@
 
         function playFile(name) {
             audioPlayer.src = name;
+            audioPlayer.load();
             audioPlayer.play().catch(e => console.error('Playback failed:', e));
             nowPlayingEl.textContent = '▶ ' + name;
+            progressFill.style.width = '0%';
+            currentTimeEl.textContent = '0:00';
+            durationEl.textContent = '0:00';
+            playBtn.disabled = true;
 
             document.querySelectorAll('.file-item').forEach(item => {
-                item.classList.toggle('active', item.querySelector('.name').childNodes[0].textContent === name);
+                const nameEl = item.querySelector('.name');
+                item.classList.toggle('active', nameEl.textContent === name);
             });
         }
 
-        audioPlayer.addEventListener('ended', () => {
-            nowPlayingEl.textContent = '✓ ' + nowPlayingEl.textContent.replace('▶ ', '');
-        });
+        lastRefreshEl.addEventListener('click', loadFiles);
 
-        document.getElementById('lastRefresh').addEventListener('click', loadFiles);
-
-        // Initial load
         loadFiles();
-
-        // Auto-refresh every 30 seconds
         refreshInterval = setInterval(loadFiles, 30000);
     </script>
 </body>

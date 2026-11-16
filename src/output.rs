@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local};
+use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
@@ -57,4 +58,83 @@ pub fn cleanup_old_files(
     }
 
     Ok(deleted)
+}
+
+#[derive(Serialize)]
+struct ManifestFile {
+    name: String,
+    size: u64,
+    modified: String,
+}
+
+#[derive(Serialize)]
+struct Manifest {
+    files: Vec<ManifestFile>,
+    count: usize,
+}
+
+/// Scan the output directory for WAV files and write a manifest.json
+/// that the web player uses to auto-refresh the file list.
+pub fn write_manifest(output_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let mut files = Vec::new();
+
+    for entry in fs::read_dir(output_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().and_then(|s| s.to_str()) != Some("wav") {
+            continue;
+        }
+
+        if let Ok(metadata) = fs::metadata(&path) {
+            let name = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            let modified = metadata
+                .modified()
+                .ok()
+                .and_then(|t| {
+                    chrono::DateTime::<Local>::from(t)
+                        .format("%Y-%m-%d %H:%M:%S")
+                        .to_string()
+                        .into()
+                })
+                .unwrap_or_default();
+
+            files.push(ManifestFile {
+                name,
+                size: metadata.len(),
+                modified,
+            });
+        }
+    }
+
+    // Sort by name descending (newest first)
+    files.sort_by(|a, b| b.name.cmp(&a.name));
+
+    let manifest = Manifest {
+        count: files.len(),
+        files,
+    };
+
+    let manifest_path = output_dir.join("manifest.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest)?,
+    )?;
+
+    tracing::debug!("Wrote manifest with {} files", manifest.count);
+    Ok(())
+}
+
+/// Copy the embedded HTML player to the output directory on startup.
+pub fn copy_player(output_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let player_html = include_str!("static/player.html");
+    let player_path = output_dir.join("index.html");
+    fs::write(&player_path, player_html)?;
+    tracing::info!("Web player written to {:?}", player_path);
+    Ok(())
 }

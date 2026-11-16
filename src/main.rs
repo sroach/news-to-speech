@@ -44,6 +44,11 @@ async fn main() {
         return;
     }
 
+    // Copy the web player to the output directory
+    if let Err(e) = output::copy_player(&config.output_dir) {
+        tracing::error!("Failed to copy web player: {}", e);
+    }
+
     // Load processed state
     let state_path = config.output_dir.join("processed.json");
     let mut processed_state = state::load_state(&state_path);
@@ -194,6 +199,11 @@ async fn run_pipeline(
 
     // Clean up old WAV files and state entries (always runs)
     cleanup_and_log(config, processed_state, state_path);
+
+    // Update the web player manifest
+    if let Err(e) = output::write_manifest(&config.output_dir) {
+        tracing::error!("Failed to write manifest: {}", e);
+    }
 
     tracing::info!(
         "Pipeline complete: {} articles processed successfully",

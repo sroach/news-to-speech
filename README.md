@@ -149,13 +149,48 @@ WAV files are written with timestamped filenames:
 
 ```
 output/
+├── index.html          ← Web player (open in browser)
+├── manifest.json       ← Auto-updated file list
+├── processed.json      ← Deduplication state
 ├── 2025-11-08_20-00_article-1.wav
 ├── 2025-11-08_20-00_article-2.wav
-├── 2025-11-08_20-00_article-3.wav
-└── processed.json
+└── 2025-11-08_20-00_article-3.wav
 ```
 
-Each file is 16-bit mono PCM at 22050 Hz — compatible with Liquidsoap.
+Each file is 16-bit mono PCM at 24kHz (Kokoro) or 22050 Hz (macOS `say`) — compatible with Liquidsoap.
+
+### Web Player
+
+On startup, the app writes `index.html` and `manifest.json` to the output directory. Point your browser at the output directory (served by nginx or any static file server) to access the audio player:
+
+- **Auto-refresh** — The player polls `manifest.json` every 30 seconds and shows new files with a "NEW" badge.
+- **Click to play** — Click any file in the list to play it in the browser's built-in audio player.
+- **No download needed** — WAV files stream directly in the browser.
+
+#### Serving with Nginx
+
+Add a location block to serve the output directory:
+
+```nginx
+location /news/ {
+    alias /path/to/output/;
+    autoindex off;
+    default_type application/json;
+
+    # Serve index.html as the default
+    try_files $uri $uri/ /index.html;
+
+    # Cache WAV files; no cache for manifest
+    location ~* \.wav$ {
+        expires 1d;
+    }
+    location = /news/manifest.json {
+        add_header Cache-Control "no-cache";
+    }
+}
+```
+
+Then open `http://your-server/news/` in your browser.
 
 ## Liquidsoap Integration
 

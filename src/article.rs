@@ -31,20 +31,24 @@ fn clean_description(desc: &str) -> String {
     let no_tags = strip_html_tags(desc);
     // Decode common HTML entities
     let decoded = decode_html_entities(&no_tags);
-    // Normalize whitespace (replace non-breaking spaces, collapse multiple spaces)
-    let normalized = decoded
+    // Normalize Unicode characters that may cause issues with TTS engines
+    // (e.g., kokoro-micro panics on multi-byte chars at byte-boundary slicing)
+    let ascii_normalized = decoded
+        .replace("\u{2019}", "'")  // right single quotation mark → '
+        .replace("\u{2018}", "'")  // left single quotation mark → '
+        .replace("\u{201D}", "\"") // right double quotation mark → "
+        .replace("\u{201C}", "\"") // left double quotation mark → "
+        .replace("\u{2026}", "...") // horizontal ellipsis
         .replace("\u{00A0}", " ")  // non-breaking space
         .replace("\u{2003}", " ")  // em space
         .replace("\u{2002}", " ")  // en space
         .replace("\u{2014}", " — ") // em dash
         .replace("\u{2013}", " – ") // en dash
-        .lines()
-        .map(|line| line.trim())
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<&str>>()
-        .join(" ");
-    // Collapse multiple spaces
-    let words: Vec<&str> = normalized.split_whitespace().collect();
+        .replace("\u{2011}", "-")   // non-breaking hyphen
+        .replace("\u{2010}", "-")   // hyphen
+        .replace("\u{200B}", "");   // zero-width space
+    // Normalize whitespace (collapse multiple spaces)
+    let words: Vec<&str> = ascii_normalized.split_whitespace().collect();
     words.join(" ")
 }
 

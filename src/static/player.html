@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News to Speech Player</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #fff;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .status-bar .count {
+            color: #aaa;
+        }
+
+        .status-bar .refresh {
+            cursor: pointer;
+            color: #4fc3f7;
+            user-select: none;
+        }
+
+        .status-bar .refresh:hover {
+            color: #81d4fa;
+        }
+
+        .player-fixed {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .now-playing {
+            font-size: 0.8rem;
+            color: #4fc3f7;
+            margin-bottom: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        audio {
+            width: 100%;
+            height: 40px;
+            border-radius: 8px;
+        }
+
+        .file-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .file-item {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-left: 3px solid transparent;
+        }
+
+        .file-item:hover {
+            background: #1a2744;
+        }
+
+        .file-item.active {
+            background: #1a2744;
+            border-left-color: #4fc3f7;
+        }
+
+        .file-item .name {
+            font-size: 0.9rem;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 1rem;
+        }
+
+        .file-item .meta {
+            font-size: 0.75rem;
+            color: #666;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .new-badge {
+            display: inline-block;
+            background: #4fc3f7;
+            color: #1a1a2e;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📻 News to Speech</h1>
+        <p class="subtitle">Auto-updating audio player for processed news articles</p>
+
+        <div class="status-bar">
+            <span class="count" id="fileCount">Loading...</span>
+            <span class="refresh" id="lastRefresh" title="Click to refresh">Last refresh: --</span>
+        </div>
+
+        <div class="player-fixed">
+            <div class="now-playing" id="nowPlaying">Select a file to play</div>
+            <audio id="audioPlayer" controls preload="none">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        <ul class="file-list" id="fileList">
+            <li class="empty-state">Waiting for audio files...</li>
+        </ul>
+    </div>
+
+    <script>
+        const audioPlayer = document.getElementById('audioPlayer');
+        const fileListEl = document.getElementById('fileList');
+        const nowPlayingEl = document.getElementById('nowPlaying');
+        const fileCountEl = document.getElementById('fileCount');
+        const lastRefreshEl = document.getElementById('lastRefresh');
+
+        let previousFiles = new Set();
+        let refreshInterval = null;
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('manifest.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Failed to load manifest');
+                const data = await response.json();
+                renderFiles(data.files);
+                fileCountEl.textContent = data.count + ' file' + (data.count !== 1 ? 's' : '');
+                lastRefreshEl.textContent = 'Last refresh: ' + new Date().toLocaleTimeString();
+            } catch (e) {
+                fileCountEl.textContent = 'Error loading manifest';
+                console.error('Failed to load manifest:', e);
+            }
+        }
+
+        function renderFiles(files) {
+            if (files.length === 0) {
+                fileListEl.innerHTML = '<li class="empty-state">No audio files yet. New articles will appear here after processing.</li>';
+                return;
+            }
+
+            const currentSrc = audioPlayer.src;
+            const currentName = currentSrc ? currentSrc.split('/').pop() : '';
+
+            fileListEl.innerHTML = '';
+            files.forEach(file => {
+                const li = document.createElement('li');
+                li.className = 'file-item' + (file.name === currentName ? ' active' : '');
+
+                const isNew = !previousFiles.has(file.name);
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'name';
+                nameSpan.textContent = file.name;
+                if (isNew) {
+                    const badge = document.createElement('span');
+                    badge.className = 'new-badge';
+                    badge.textContent = 'NEW';
+                    nameSpan.appendChild(badge);
+                }
+
+                const meta = document.createElement('span');
+                meta.className = 'meta';
+                const sizeKB = (file.size / 1024).toFixed(0);
+                meta.innerHTML = sizeKB + ' KB<br>' + file.modified;
+
+                li.appendChild(nameSpan);
+                li.appendChild(meta);
+
+                li.addEventListener('click', () => playFile(file.name));
+                fileListEl.appendChild(li);
+            });
+
+            previousFiles = new Set(files.map(f => f.name));
+        }
+
+        function playFile(name) {
+            audioPlayer.src = name;
+            audioPlayer.play().catch(e => console.error('Playback failed:', e));
+            nowPlayingEl.textContent = '▶ ' + name;
+
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.toggle('active', item.querySelector('.name').childNodes[0].textContent === name);
+            });
+        }
+
+        audioPlayer.addEventListener('ended', () => {
+            nowPlayingEl.textContent = '✓ ' + nowPlayingEl.textContent.replace('▶ ', '');
+        });
+
+        document.getElementById('lastRefresh').addEventListener('click', loadFiles);
+
+        // Initial load
+        loadFiles();
+
+        // Auto-refresh every 30 seconds
+        refreshInterval = setInterval(loadFiles, 30000);
+    </script>
+</body>
+</html>

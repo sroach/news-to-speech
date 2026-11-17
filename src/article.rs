@@ -19,22 +19,19 @@ pub fn extract_article(item: &FeedItem) -> Result<ArticleText, Box<dyn std::erro
         return Err(format!("Empty description for article '{}'", item.title).into());
     }
 
+    // Also sanitize the title to remove Unicode characters that break TTS engines
+    let title = sanitize_unicode(item.title.as_str());
+
     Ok(ArticleText {
-        title: item.title.clone(),
-        body: body,
+        title,
+        body,
     })
 }
 
-/// Clean RSS description by stripping HTML tags and decoding HTML entities.
-fn clean_description(desc: &str) -> String {
-    // Remove HTML tags
-    let no_tags = strip_html_tags(desc);
-    // Decode common HTML entities
-    let decoded = decode_html_entities(&no_tags);
-    // Normalize Unicode characters that may cause issues with TTS engines
-    // (e.g., kokoro-micro panics on multi-byte chars at byte-boundary slicing)
-    let ascii_normalized = decoded
-        .replace("\u{2019}", "'")  // right single quotation mark → '
+/// Normalize Unicode characters that may cause issues with TTS engines
+/// (e.g., kokoro-micro panics on multi-byte chars at byte-boundary slicing).
+fn sanitize_unicode(text: &str) -> String {
+    text.replace("\u{2019}", "'")  // right single quotation mark → '
         .replace("\u{2018}", "'")  // left single quotation mark → '
         .replace("\u{201D}", "\"") // right double quotation mark → "
         .replace("\u{201C}", "\"") // left double quotation mark → "
@@ -46,7 +43,28 @@ fn clean_description(desc: &str) -> String {
         .replace("\u{2013}", " – ") // en dash
         .replace("\u{2011}", "-")   // non-breaking hyphen
         .replace("\u{2010}", "-")   // hyphen
-        .replace("\u{200B}", "");   // zero-width space
+        .replace("\u{200B}", "")    // zero-width space
+        // Additional characters that may cause byte-boundary issues
+        .replace("\u{2012}", "-")   // figure dash
+        .replace("\u{2015}", " | ") // horizontal bar
+        .replace("\u{203E}", "‾")   // overline
+        .replace("\u{00B7}", "'")   // middle dot (used as apostrophe in some languages)
+        .replace("\u{02BC}", "'")   // modifier letter apostrophe
+        .replace("\u{FF07}", "'")   // fullwidth apostrophe
+        .replace("\u{201B}", "'")   // single high-reversed-9 quotation mark
+        .replace("\u{201A}", "'")   // single low-9 quotation mark
+        .replace("\u{0060}", "'")   // grave accent → '
+        .replace("\u{00AF}", "'")   // macron → '
+}
+
+/// Clean RSS description by stripping HTML tags and decoding HTML entities.
+fn clean_description(desc: &str) -> String {
+    // Remove HTML tags
+    let no_tags = strip_html_tags(desc);
+    // Decode common HTML entities
+    let decoded = decode_html_entities(&no_tags);
+    // Normalize Unicode characters
+    let ascii_normalized = sanitize_unicode(&decoded);
     // Normalize whitespace (collapse multiple spaces)
     let words: Vec<&str> = ascii_normalized.split_whitespace().collect();
     words.join(" ")

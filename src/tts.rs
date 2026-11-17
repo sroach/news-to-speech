@@ -17,6 +17,32 @@ pub async fn synthesize_to_file(
     }
 }
 
+/// Normalize Unicode characters that may cause issues with Kokoro TTS
+/// (e.g., panics on multi-byte chars at byte-boundary slicing in G2P).
+fn sanitize_for_kokoro(text: &str) -> String {
+    text.replace("\u{2019}", "'")  // right single quotation mark
+        .replace("\u{2018}", "'")  // left single quotation mark
+        .replace("\u{201D}", "\"") // right double quotation mark
+        .replace("\u{201C}", "\"") // left double quotation mark
+        .replace("\u{2026}", "...") // horizontal ellipsis
+        .replace("\u{00A0}", " ")  // non-breaking space
+        .replace("\u{2003}", " ")  // em space
+        .replace("\u{2002}", " ")  // en space
+        .replace("\u{2014}", " - ") // em dash
+        .replace("\u{2013}", " - ") // en dash
+        .replace("\u{2012}", "-")   // figure dash
+        .replace("\u{2011}", "-")   // non-breaking hyphen
+        .replace("\u{2010}", "-")   // hyphen
+        .replace("\u{200B}", "")    // zero-width space
+        .replace("\u{00B7}", "'")   // middle dot
+        .replace("\u{02BC}", "'")   // modifier letter apostrophe
+        .replace("\u{FF07}", "'")   // fullwidth apostrophe
+        .replace("\u{201B}", "'")   // single high-reversed-9 quotation mark
+        .replace("\u{201A}", "'")   // single low-9 quotation mark
+        .replace("\u{0060}", "'")   // grave accent
+        .replace("\u{00AF}", "'")   // macron
+}
+
 /// Synthesize text to speech using Kokoro TTS.
 async fn synthesize_kokoro(
     text: &str,
@@ -29,12 +55,15 @@ async fn synthesize_kokoro(
         output_path
     );
 
+    // Sanitize text to prevent kokoro-micro G2P byte-boundary panics
+    let sanitized_text = sanitize_for_kokoro(text);
+
     let engine = kokoro_micro::TtsEngine::new()
         .await
         .map_err(|e| format!("Failed to initialize Kokoro: {}", e))?;
 
     let audio = engine
-        .synthesize_with_options(text, Some(&config.voice), 1.0, 1.0, None)
+        .synthesize_with_options(&sanitized_text, Some(&config.voice), 1.0, 1.0, None)
         .map_err(|e| format!("Kokoro synthesis failed: {}", e))?;
 
     engine
